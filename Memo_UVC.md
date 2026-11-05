@@ -1,21 +1,11 @@
-# UVCメモ
+# UVC系　Memo
 
-## JLINKの接続
-給電を行う。jlinkコマンドから行う。二台あるときは
-JLinkExe -usb <シリアル番号>
-Education;260109114
-PlusCompact:852006438
-power on perm
+## コンポジットカメラを使う場合
+TVP5150AM1-EPでDCMIにしてNucleo-F767ZIでjpegエンコードする
 
-## Embedded gdb server
-gdb /usr/local/bin/JLinkGDBServerCL
-call
--device STM32F411CE -if SWD -speed 4000 -select usb=260109114 -port 2331  -rtttelnetport 19021
-gdbはポートを連続して3つ使うので、別ポートにする場合は大きく開けたほうがよい
-ans
--device STM32F411CE -if SWD -speed 4000 -select usb=852006438 -port 2341  -rtttelnetport 19022
+## UVCクラスの扱い
 
-## クラスの登録
+### クラスの登録
 
 クラスは/USB_HOST/App/usb_host.cで登録している。
 CDCの場合、登録するべきUSBH_CDC_CLASSはusbh_cdc.hで
@@ -32,8 +22,7 @@ extern USBH_ClassTypeDef  VIDEO_Class;
 ```
 と定義されているので、これを登録すればよかったはず。
 
-
-
+### ループとその処理
 
 iliasamさんの STM32_HOST_UVC_Camera をベースにされているのですね！実績のある非常に強力なコードですので、これをBlack Pill（STM32F411）へ移植して「毎分2枚」の仕様に落とし込むための具体的な修正ポイントが見えてきます。
 このサンプルは、標準のSTM32USBホストライブラリを拡張してUVCクラスを追加した構成になっています。Discovery（F407）からBlack Pill（F411）へ移植する際、絶対に書き換えるべき「3つのポイント」は以下となります。
@@ -66,6 +55,7 @@ iliasamさんのコードは、リアルタイムに画面（LCD等）に描画�
 無事にBlack Pillで列挙（Enumeration）が成功し、usbh_usr.c 内のステートが HOST_USER_CLASS_ACTIVE になったら、以下の手順でJPEGデータを1枚分だけぶっこ抜きます。
 c
 // mainループ、またはタイマー割り込みでの処理イメージ
+```c++
 while (1) {
 // 1. 30秒（または任意の時間）待機
 HAL_Delay(30000);
@@ -88,3 +78,4 @@ HAL_Delay(30000);
 
     frame_is_complete = 0; // フラグをクリアして次の30秒へ
 }
+```

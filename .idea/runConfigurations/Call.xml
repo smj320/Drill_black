@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Call" type="com.jetbrains.cidr.embedded.customgdbserver.type" factoryName="com.jetbrains.cidr.embedded.customgdbserver.factory" PROGRAM_PARAMS="-device STM32F411CE -if SWD -speed 4000 -select usb=260109114 -port 2331 -rtttelnetport 19021" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Drill_black" TARGET_NAME="Drill_black" CONFIG_NAME="Debug - Debug" version="1" RUN_TARGET_PROJECT_NAME="Drill_black" RUN_TARGET_NAME="Drill_black">
-    <custom-gdb-server version="1" gdb-connect="localhost:2331" executable="/usr/local/bin/JLinkGDBServerCL" warmup-ms="0" download-type="UPDATED_ONLY" reset-cmd="monitor reset" reset-type="AFTER_DOWNLOAD">
+    <custom-gdb-server version="1" gdb-connect="localhost:2331" executable="/usr/local/bin/JLinkGDBServerCL" warmup-ms="0" download-type="UPDATED_ONLY" reset-cmd="monitor reset" reset-type="BOTH_TIMES">
       <debugger kind="GDB" isBundled="true" />
     </custom-gdb-server>
     <method v="2">

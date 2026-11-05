@@ -45,6 +45,9 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
+    Core/Src/SEGGER_RTT.c
+    Core/Src/SEGGER_RTT_printf.c
+    Core/Src/rtt_term.c
 )
 
 # Add include paths
@@ -55,6 +58,7 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add project symbols (macros)
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined symbols
+    RTT_USE_ASM=0   # SEGGER_RTT_ASM_ARMv7M.S is not in the project; use the C implementation
 )
 
 # Remove wrong libob.a library dependency when using cpp files
