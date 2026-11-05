@@ -2,7 +2,6 @@
 // Created by kikuchi on 2026/10/21.
 //
 #include <string.h>
-#include "stm32l4xx_hal.h"
 #include "cmsis_os.h"
 #include "task.h"
 #include "queue.h"
@@ -17,6 +16,9 @@
 // タスク起床用に自分のハンドルを持ってくる
 QueueHandle_t hTxQ, hRxQ;
 extern osThreadId_t TaskHDLCHandle;
+extern TIM_HandleTypeDef htim2;
+// CubeMXのキュー要素型とバッファ長の一致を保証
+_Static_assert(sizeof(HdlcFrame_t) == Q_DATA_SIZE, "HdlcFrame_t size != Q_DATA_SIZE");
 //
 int FrameError = 0;
 // 診断用カウンタ(TaskHKで表示)
@@ -50,7 +52,7 @@ static void HDLC_service() {
     if (st.Bits.TxDataReady == 1) {
         //txPtrがxQTxの端まで言っていたらキューの有無をしらべて、txPtr=0にする
         if (txPtr == Q_DATA_SIZE) {
-            if (xQueueReceive(QueueTxHandle, txBuffer, 0) == pdPASS) {
+            if (xQueueReceive(hTxQ, txBuffer, 0) == pdPASS) {
                 HdlcCnt.txFrame++;
                 txPtr = 0;
             }
@@ -99,6 +101,8 @@ static void HDLC_service() {
 void StartTaskHDLC(void *argument) {
     // CMX869Bの初期化
     cmx869b_init();
+    // 初期化完了後に周期割込(TIM2)を開始。タスク生成前に割込が来るのを防ぐ
+    HAL_TIM_Base_Start_IT(&htim2);
 
     for (;;) {
         // 周期割込待ち

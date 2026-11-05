@@ -24,10 +24,13 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "rtt_term.h"
+#include "TaskHDLC.h"
 
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
+typedef StaticTask_t osStaticThreadDef_t;
+typedef StaticQueue_t osStaticMessageQDef_t;
 /* USER CODE BEGIN PTD */
 
 /* USER CODE END PTD */
@@ -57,12 +60,64 @@ UART_HandleTypeDef huart2;
 
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
+uint32_t defaultTaskBuffer[ 256 ];
+osStaticThreadDef_t defaultTaskControlBlock;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
-  .stack_size = 128 * 4,
+  .cb_mem = &defaultTaskControlBlock,
+  .cb_size = sizeof(defaultTaskControlBlock),
+  .stack_mem = &defaultTaskBuffer[0],
+  .stack_size = sizeof(defaultTaskBuffer),
   .priority = (osPriority_t) osPriorityNormal,
 };
+/* Definitions for TaskHDLC */
+osThreadId_t TaskHDLCHandle;
+uint32_t TaskHDLCBuffer[ 256 ];
+osStaticThreadDef_t TaskHDLCControlBlock;
+const osThreadAttr_t TaskHDLC_attributes = {
+  .name = "TaskHDLC",
+  .cb_mem = &TaskHDLCControlBlock,
+  .cb_size = sizeof(TaskHDLCControlBlock),
+  .stack_mem = &TaskHDLCBuffer[0],
+  .stack_size = sizeof(TaskHDLCBuffer),
+  .priority = (osPriority_t) osPriorityRealtime,
+};
+/* Definitions for TaskHK */
+osThreadId_t TaskHKHandle;
+uint32_t TaskHKBuffer[ 256 ];
+osStaticThreadDef_t TaskHKControlBlock;
+const osThreadAttr_t TaskHK_attributes = {
+  .name = "TaskHK",
+  .cb_mem = &TaskHKControlBlock,
+  .cb_size = sizeof(TaskHKControlBlock),
+  .stack_mem = &TaskHKBuffer[0],
+  .stack_size = sizeof(TaskHKBuffer),
+  .priority = (osPriority_t) osPriorityLow,
+};
+/* Definitions for QueueTX */
+osMessageQueueId_t QueueTXHandle;
+uint8_t QueueTXBuffer[ 4 * sizeof( HdlcFrame_t ) ];
+osStaticMessageQDef_t QueueTXControlBlock;
+const osMessageQueueAttr_t QueueTX_attributes = {
+  .name = "QueueTX",
+  .cb_mem = &QueueTXControlBlock,
+  .cb_size = sizeof(QueueTXControlBlock),
+  .mq_mem = &QueueTXBuffer,
+  .mq_size = sizeof(QueueTXBuffer)
+};
+/* Definitions for QueueRX */
+osMessageQueueId_t QueueRXHandle;
+uint8_t QueueRXBuffer[ 4 * sizeof( HdlcFrame_t ) ];
+osStaticMessageQDef_t QueueRXControlBlock;
+const osMessageQueueAttr_t QueueRX_attributes = {
+  .name = "QueueRX",
+  .cb_mem = &QueueRXControlBlock,
+  .cb_size = sizeof(QueueRXControlBlock),
+  .mq_mem = &QueueRXBuffer,
+  .mq_size = sizeof(QueueRXBuffer)
+};
 /* USER CODE BEGIN PV */
+int Is_gse = 0;   /* MODEM_MODE(PA8) が 0(GND) のとき 1 */
 
 /* USER CODE END PV */
 
@@ -77,6 +132,8 @@ static void MX_USART2_UART_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 void StartDefaultTask(void *argument);
+void StartTaskHDLC(void *argument);
+void StartTaskHK(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -124,7 +181,8 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
-  HAL_TIM_Base_Start_IT(&htim2);
+  Is_gse = (HAL_GPIO_ReadPin(MODEM_MODE_GPIO_Port, MODEM_MODE_Pin) == GPIO_PIN_RESET) ? 1 : 0;
+  /* TIM2 は StartTaskHDLC() 内で cmx869b_init() 後に開始する */
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -143,13 +201,28 @@ int main(void)
   /* start timers, add new ones, ... */
   /* USER CODE END RTOS_TIMERS */
 
+  /* Create the queue(s) */
+  /* creation of QueueTX */
+  QueueTXHandle = osMessageQueueNew (4, sizeof(HdlcFrame_t), &QueueTX_attributes);
+
+  /* creation of QueueRX */
+  QueueRXHandle = osMessageQueueNew (4, sizeof(HdlcFrame_t), &QueueRX_attributes);
+
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
+  hTxQ = (QueueHandle_t)QueueTXHandle;
+  hRxQ = (QueueHandle_t)QueueRXHandle;
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
   /* creation of defaultTask */
   defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+
+  /* creation of TaskHDLC */
+  TaskHDLCHandle = osThreadNew(StartTaskHDLC, NULL, &TaskHDLC_attributes);
+
+  /* creation of TaskHK */
+  TaskHKHandle = osThreadNew(StartTaskHK, NULL, &TaskHK_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -534,7 +607,10 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, CPU_MON_Pin|C_CS_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(CPU_MON_GPIO_Port, CPU_MON_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(C_CS_GPIO_Port, C_CS_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : LED_GREEN_Pin */
   GPIO_InitStruct.Pin = LED_GREEN_Pin;
@@ -543,12 +619,25 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LED_GREEN_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : CPU_MON_Pin C_CS_Pin */
-  GPIO_InitStruct.Pin = CPU_MON_Pin|C_CS_Pin;
+  /*Configure GPIO pin : CPU_MON_Pin */
+  GPIO_InitStruct.Pin = CPU_MON_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  HAL_GPIO_Init(CPU_MON_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : MODEM_MODE_Pin */
+  GPIO_InitStruct.Pin = MODEM_MODE_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(MODEM_MODE_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : C_CS_Pin */
+  GPIO_InitStruct.Pin = C_CS_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(C_CS_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -579,6 +668,42 @@ void StartDefaultTask(void *argument)
   /* USER CODE END 5 */
 }
 
+/* USER CODE BEGIN Header_StartTaskHDLC */
+/**
+* @brief Function implementing the TaskHDLC thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartTaskHDLC */
+__weak void StartTaskHDLC(void *argument)
+{
+  /* USER CODE BEGIN StartTaskHDLC */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartTaskHDLC */
+}
+
+/* USER CODE BEGIN Header_StartTaskHK */
+/**
+* @brief Function implementing the TaskHK thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartTaskHK */
+__weak void StartTaskHK(void *argument)
+{
+  /* USER CODE BEGIN StartTaskHK */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartTaskHK */
+}
+
 /**
   * @brief  Period elapsed callback in non blocking mode
   * @note   This function is called  when TIM5 interrupt took place, inside
@@ -599,7 +724,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   /* USER CODE BEGIN Callback 1 */
   if (htim->Instance == TIM2)
   {
-    HAL_GPIO_TogglePin(CPU_MON_GPIO_Port, CPU_MON_Pin);
+    Wakeup_TaskHDLC_FromISR();   /* CPU_MON は TaskHDLC 側で処理時間計測に使用 */
   }
   /* USER CODE END Callback 1 */
 }

@@ -7,11 +7,15 @@
 
 #define Q_DATA_SIZE 80
 
-void HDLC_QueueInit(void);
 void StartTaskHDLC(void *argument);
 void Wakeup_TaskHDLC_FromISR(void);
 
 extern int FrameError;
+
+// フレームキュー (CubeMX生成の QueueTXHandle / QueueRXHandle を main.c で代入)
+#include "FreeRTOS.h"
+#include "queue.h"
+extern QueueHandle_t hTxQ, hRxQ;
 
 // 診断用カウンタ
 typedef struct {

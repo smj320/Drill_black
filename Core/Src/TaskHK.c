@@ -7,7 +7,7 @@
 #include "task.h"
 #include "queue.h"
 #include "main.h"
-#include "xprintf.h"
+#include "SEGGER_RTT.h"
 #include "TaskHK.h"
 #include "TaskHDLC.h"
 //
@@ -16,7 +16,8 @@ extern osThreadId_t TaskHDLCHandle;
 
 // printfはnewlibのstdoutロック(taskENTER_CRITICAL)を握ったままUART送信するので、
 // 送信中はTIM2割込とタスク切替が止まり、HDLCが取りこぼす。
-// ロックを持たないxprintfを使うこと
+// ロックを持たず送信待ちもしない SEGGER_RTT_printf を使うこと
+// (RTTはバッファ満杯時は捨てる NO_BLOCK_SKIP。ロックは短時間のBASEPRIのみ)
 
 // タスクのエントリポイント。weakをここで上書き
 void StartTaskHK(void *argument) {
@@ -51,25 +52,25 @@ void StartTaskHK(void *argument) {
                 ngFrame++;
                 ngByte += ng;
             }
-            xprintf("GSE %d : OK:%lu NG:%lu NGBYTE:%lu\r\n", Is_gse, okFrame, ngFrame, ngByte);
+            SEGGER_RTT_printf(0, "GSE %d : OK:%lu NG:%lu NGBYTE:%lu\r\n", Is_gse, okFrame, ngFrame, ngByte);
             for (int i = 0; i < Q_DATA_SIZE; i++) {
-                xprintf("%04d ", rx_data[i]);
+                SEGGER_RTT_printf(0, "%04d ", rx_data[i]);
             }
-            xprintf("\r\n");
+            SEGGER_RTT_printf(0, "\r\n");
         } else {
-            xprintf("Receive timeout\r\n");
+            SEGGER_RTT_printf(0, "Receive timeout\r\n");
         }
         // 受信状態
-        xprintf("RDY:%lu OVF:%lu UDF:%lu FER:%lu FCS:%lu LEN:%d\r\n",
+        SEGGER_RTT_printf(0, "RDY:%lu OVF:%lu UDF:%lu FER:%lu FCS:%lu LEN:%d\r\n",
                 HdlcCnt.rxReady, HdlcCnt.rxOverflow, HdlcCnt.txUnderflow,
                 HdlcCnt.frameError, HdlcCnt.fcs, HdlcCnt.lastLen);
         // 送信状態とスタック残量(word単位。0に近いと溢れかけ)
-        xprintf("SRV:%lu TXF:%lu STK HDLC:%lu HK:%lu\r\n",
+        SEGGER_RTT_printf(0, "SRV:%lu TXF:%lu STK HDLC:%lu HK:%lu\r\n",
                 HdlcCnt.service, HdlcCnt.txFrame,
                 (uint32_t) uxTaskGetStackHighWaterMark(TaskHDLCHandle),
                 (uint32_t) uxTaskGetStackHighWaterMark(NULL));
         // フレーム終端時の内訳
-        xprintf("FCSERR:%lu SHORT:%lu QFULL:%lu\r\n",
+        SEGGER_RTT_printf(0, "FCSERR:%lu SHORT:%lu QFULL:%lu\r\n",
                 HdlcCnt.fcsWithErr, HdlcCnt.shortFrame, HdlcCnt.rxQFull);
         // 待機
         vTaskDelayUntil(&xLastWakeTime, xFrequency);

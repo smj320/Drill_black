@@ -98,3 +98,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 }
 ```
 あたりでWakeup_TaskHDLC_FromISR()を呼んで貰う。中身はタスクの起床。
+
+### クロック
+ボーレート (N)おすすめの設定値例 (96MHz基準)実効周波数誤差
+1,200 Hz PSC = 99, ARR = 799 （総分周 80,000） 1,200.0 Hz 0.00%
+2,400 Hz　PSC = 99, ARR = 399 （総分周 40,000） 2,400.0 Hz0.00%
+9,600 HzPSC = 24, ARR = 399 （総分周 10,000） 9,600.0 Hz0.00%
+12,000 HzPSC = 19, ARR = 399 （総分周 8,000） 12,000.0 Hz0.00%
+14,400 HzPSC = 23, ARR = 277 （総分周 6,672） 14,388.5 Hz-0.08%

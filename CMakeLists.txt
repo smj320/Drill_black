@@ -43,11 +43,14 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 )
 
 # Add sources to executable
+# Core/Src/*.c をすべて取り込む（ファイル追加時もビルド時に自動で再検出）
+file(GLOB USER_CORE_SRC CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/*.c)
+# CubeMX 側で別ターゲット(STM32_Drivers)に入っているものは除外（二重定義防止）
+list(REMOVE_ITEM USER_CORE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/Core/Src/system_stm32f4xx.c)
+
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
-    Core/Src/SEGGER_RTT.c
-    Core/Src/SEGGER_RTT_printf.c
-    Core/Src/rtt_term.c
+    ${USER_CORE_SRC}
 )
 
 # Add include paths

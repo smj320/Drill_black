@@ -2,11 +2,18 @@
 // Created by kikuchi on 2026/10/29.
 //
 #include <stdint.h>
-#include "xprintf.h"
+#include "SEGGER_RTT.h"
 #include "cmsis_os.h"
 #include "task.h"
 #include "main.h"
 #include "cmx869b.h"
+
+// タスク内の待ち。HAL_Delayはビジーウェイトで低優先度タスクを止めるのでosDelayを使う。
+// osDelay(n)は呼んだタイミングで最短 n-1 ms になるため +1 して最低 ms を保証する
+// (HAL_Delayと同じ「最低 ms 待つ」意味)。タスクコンテキスト専用。
+static inline void cmx_delay_ms(uint32_t ms) {
+    osDelay(ms + 1U);
+}
 // ----------------------------------------------------------------------------
 //ステータス・ジレスタビット定義構造体定義
 // ----------------------------------------------------------------------------
@@ -165,13 +172,13 @@ static StatusQamRegType cbus_monitor_status_qam() {
     static int tic = 0;
     StatusQamRegType qamSt= {0};
     qamSt = cbus_read_status_qam();
-    xprintf("GSE:%d TI:%03d MSG:%02X SNR:%02X MODE:%02X\r\n",
+    SEGGER_RTT_printf(0, "GSE:%d TI:%03d MSG:%02X SNR:%02X MODE:%02X\r\n",
             Is_gse,
             tic, qamSt.Bits.Messages,
             qamSt.Bits.SNR,
             qamSt.Bits.Mode);
     tic++;
-    HAL_Delay(500);
+    cmx_delay_ms(500);
     return qamSt;
 }
 // ----------------------------------------------------------------------------
@@ -222,7 +229,7 @@ static void set_qam_answer() {
     txReg.Bits.StartStop = 0b11; //Special Mode
     txReg.Bits.DataBits = 0b110; //HDLC Mode
     cbus_write_reg(TxReg_ADDR, txReg.Word);
-    HAL_Delay(10);
+    cmx_delay_ms(10);
     // RX
     rxReg.Bits.RxMode = RxReg_Mode_QAM_AUTO;
     rxReg.Bits.RxLevel = RX_LEVEL;
@@ -231,13 +238,13 @@ static void set_qam_answer() {
     rxReg.Bits.StartStop_Synch = 0b111; //Special Mode
     rxReg.Bits.BitsParity = 0b110; //HDLC Mode
     cbus_write_reg(RxReg_ADDR, rxReg.Word);
-    HAL_Delay(10);
+    cmx_delay_ms(10);
     //QAM
     qamReg.Bits.br = MaxSpeed;
     qamReg.Bits.command = QamAnswer;
     qamReg.Bits.zeros = QamZeros;
     cbus_write_reg(QamCmdReg_ADDR, qamReg.Word);
-    HAL_Delay(10);
+    cmx_delay_ms(10);
 }
 
 static void set_qam_call() {
@@ -252,7 +259,7 @@ static void set_qam_call() {
     txReg.Bits.StartStop = 0b11; //Special Mode
     txReg.Bits.DataBits = 0b110; //HDLC Mode
     cbus_write_reg(TxReg_ADDR, txReg.Word);
-    HAL_Delay(10);
+    cmx_delay_ms(10);
     // RX
     rxReg.Bits.RxMode = RxReg_Mode_QAM_AUTO;
     rxReg.Bits.RxLevel = RX_LEVEL;
@@ -261,13 +268,13 @@ static void set_qam_call() {
     rxReg.Bits.StartStop_Synch = 0b111; //Special Mode
     rxReg.Bits.BitsParity = 0b110; //HDLC Mode
     cbus_write_reg(RxReg_ADDR, rxReg.Word);
-    HAL_Delay(10);
+    cmx_delay_ms(10);
     //QAM
     qamReg.Bits.br = MaxSpeed;
     qamReg.Bits.command = QamCall;
     qamReg.Bits.zeros = QamZeros;
     cbus_write_reg(QamCmdReg_ADDR, qamReg.Word);
-    HAL_Delay(10);
+    cmx_delay_ms(10);
 }
 // ****************************************************************************
 // 初期化
@@ -334,7 +341,7 @@ void cmx869b_init() {
     gre.Bits.Rst = 1;
     cbus_write_reg(GRE_ADDR, gre.Word);
     st = cbus_read_status();
-    HAL_Delay(25);
+    cmx_delay_ms(25);
 
     //send_cmdで、うまくいくと22pinが発振する
     //gre.Bits.HighGain = 1;
@@ -346,7 +353,7 @@ void cmx869b_init() {
     gre.Bits.IrqMask = 0b000000;
     cbus_write_reg(GRE_ADDR, gre.Word);
     st = cbus_read_status();
-    HAL_Delay(1);
+    cmx_delay_ms(1);
 
     // モデム送受信の設定
     if (is_loop_back == 1) {
@@ -366,7 +373,7 @@ void cmx869b_init() {
         }
         for (uint8_t tic = 0; tic < 60; tic++) {
             cbus_monitor_status_qam();
-            HAL_Delay(500);
+            cmx_delay_ms(500);
         }
     }
     // ポーリングビットレート設定
@@ -374,5 +381,5 @@ void cmx869b_init() {
     stqam = cbus_read_status_qam();
     set_poll_count(stqam.Bits.Mode);
     // 合図
-    xprintf("Initialized\r\n");
+    SEGGER_RTT_printf(0, "Initialized\r\n");
 }

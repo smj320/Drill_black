@@ -36,6 +36,10 @@ extern "C" {
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
+/* HDLC 1フレーム分のキュー要素 (CubeMX の Queue "Item Size" にこの型名を指定する) */
+typedef struct {
+  uint8_t data[80];   /* = Q_DATA_SIZE (TaskHDLC.h) */
+} HdlcFrame_t;
 
 /* USER CODE END ET */
 
@@ -53,14 +57,17 @@ extern "C" {
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
+extern int Is_gse;   /* 1: GSE 側 (MODEM_MODE ピンが 0) */
 
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
 #define LED_GREEN_Pin GPIO_PIN_13
 #define LED_GREEN_GPIO_Port GPIOC
-#define CPU_MON_Pin GPIO_PIN_8
-#define CPU_MON_GPIO_Port GPIOA
+#define CPU_MON_Pin GPIO_PIN_15
+#define CPU_MON_GPIO_Port GPIOB
+#define MODEM_MODE_Pin GPIO_PIN_8
+#define MODEM_MODE_GPIO_Port GPIOA
 #define C_CS_Pin GPIO_PIN_15
 #define C_CS_GPIO_Port GPIOA
 
