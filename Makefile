@@ -1,21 +1,9 @@
-.PHONY:  debug_call
-debug_call:
-	JLinkGDBServerCL -device STM32F411CE \
-          -if SWD \
-          -speed 4000 \
-          -select usb=260109114 \
-          -port 2341 \
-          -swoport 2342 \
-          -telnetport 2343 \
-          -rtttelnetport 19022
+RTT_VIEWER = /Applications/SEGGER/JLink_V978/JLinkRTTViewer.app/Contents/MacOS/JLinkRTTViewerExe
 
-.PHONY: debug_ans
-debug_ans:
-	JLinkGDBServerCL -device STM32F411CE \
-          -if SWD \
-          -speed 4000 \
-          -select usb=852006438 \
-          -port 2351 \
-          -swoport 2352 \
-          -telnetport 2353 \
-          -rtttelnetport 19032
+.PHONY:  vcall
+vcall:
+	$(RTT_VIEWER) -device STM32F411CE -if SWD -speed 4000 -usb 852006438 -a &
+
+.PHONY: vans
+vans:
+	$(RTT_VIEWER) -device STM32F411CE -if SWD -speed 4000 -usb 260109114 -a &

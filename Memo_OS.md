@@ -71,10 +71,15 @@ power on perm
 ### Embedded gdb serverのパス
 gdb /usr/local/bin/JLinkGDBServerCL
 call
--device STM32F411CE -if SWD -speed 4000 -select usb=260109114 -port 2331  -rtttelnetport 19021
-gdbはポートを連続して3つ使うので、別ポートにする場合は大きく開けたほうがよい
+-device STM32F411CE -if SWD -speed 4000  -select usb=260109114 -port 2341 -swoport 2342 -telnetport 2343 -rtttelnetport 19122
 ans
--device STM32F411CE -if SWD -speed 4000 -select usb=852006438 -port 2341  -rtttelnetport 19022
+-device STM32F411CE -if SWD -speed 4000 -select usb=852006438 -port 2351 -swoport 2352 -telnetport 2353  -rtttelnetport 19132
+
+RTTの出力を見るには
+call
+nc localhost 19122
+ans
+nc localhost 19132
 
 ### RTOSを入れたときのデバッガがとまらない問題
 
