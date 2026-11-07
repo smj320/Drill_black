@@ -283,7 +283,7 @@ static void set_qam_call() {
 static void set_poll_count(uint8_t mode) {
     // TIM2のクロック。SYSCLKはMSI 4MHz x16 /2 = 32MHz。
     // APB1が1分周なのでTIM2クロック = PCLK1(分周するとx2になるので注意)
-    const uint32_t TIM_CLK = HAL_RCC_GetPCLK1Freq();
+    const uint32_t TIM_CLK = HAL_RCC_GetPCLK1Freq()*2;
     uint32_t target_modes[] = {0x0F, 0x0E, 0x0D, 0x0C, 0x0B, 0x0A, 0x09, 0x08};
     uint32_t target_freqs[] = {14400, 12000, 9600, 9600, 7200, 4800, 2400, 1200};
     uint32_t target_freq = 1200;
