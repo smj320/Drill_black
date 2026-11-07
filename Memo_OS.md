@@ -7,11 +7,22 @@
 Settings → Editor → Color Scheme → General → Code → Injected language fragment
 
 ## Build関係
+make call, あるいはmake ansでプローブに繋がるJlinkGDBサーバを立ち上げる。
+次にCall, Ansのリモートデバッグ環境を実行する。
+起動前のところにcmakeによるターゲットのBuildと、elfのアップロードを行うコマンドを実行する。
+elfのアップロードはmakeで実行するようになっており、実体は
+```text
+JLINK_EXE = /Applications/SEGGER/JLink/JLinkExe
+FLASH_OPTS = -device STM32F411CE -if SWD -speed 4000 -autoconnect 1 -CommanderScript tools/flash.jlink
+$(JLINK_EXE) -SelectEmuBySN 852006438 $(FLASH_OPTS)
+```
+のような設定になっている。
 
 ### SysTicの変更
 
 cubemxでコード生成するときに警告画出るので、
 FreeRTOS側でタイマーをSysTickからTM5に変更する。
+SysTickはOSが利用するので、HALが使うタイマをSysTickから逃がす意図。
 
 ### cmakeの修正
 ```text
