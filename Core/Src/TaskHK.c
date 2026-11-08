@@ -37,9 +37,12 @@ void StartTaskHK(void *argument) {
         int err = 0;
         if (xQueueReceive(hRxQ, rx_data, 1500) == pdTRUE) {
             for (int i = 0; i < Q_DATA_SIZE; i++) {
-                if (rx_data[i] != i) err++;
+                if (rx_data[i] != i) {
+                    err=1;
+                    break;
+                }
             }
-            RTT_TermPrintf(0, "GSE:%d TI:%05d SNR:%02X MODE:%02X ERR:%03ld LEN: %03d ERR:%03d\r\n",
+            RTT_TermPrintf(0, "GSE:%d TI:%05d SNR:%02X MODE:%02X ERR:%03ld LEN:%03d ERR:%d\r\n",
                            Is_gse,
                            f_count,
                            HdlcCnt.SNR,
