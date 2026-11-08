@@ -7,6 +7,7 @@
 #include "task.h"
 #include "main.h"
 #include "cmx869b.h"
+#include "rtt_term.h"
 
 // タスク内の待ち。HAL_Delayはビジーウェイトで低優先度タスクを止めるのでosDelayを使う。
 // osDelay(n)は呼んだタイミングで最短 n-1 ms になるため +1 して最低 ms を保証する
@@ -172,7 +173,7 @@ static StatusQamRegType cbus_monitor_status_qam() {
     static int tic = 0;
     StatusQamRegType qamSt = {0};
     qamSt = cbus_read_status_qam();
-    SEGGER_RTT_printf(0, "GSE:%d TI:%03d MSG:%02X SNR:%02X MODE:%02X\r\n",
+    RTT_TermPrintf(0, "GSE:%d TI:%03d MSG:%02X SNR:%02X MODE:%02X\r\n",
                       Is_gse,
                       tic, qamSt.Bits.Messages,
                       qamSt.Bits.SNR,
@@ -279,62 +280,9 @@ static void set_qam_call() {
 // ****************************************************************************
 // 初期化
 // ****************************************************************************
-// モードから周期割込の頻度を決める
-static void set_poll_count(uint8_t mode) {
-    uint32_t pre_scaler = 39;
-    uint32_t period = 1999;
-    //モード判定
-    switch (mode) {
-        case 0x0F: //14400
-            pre_scaler = 23;
-            period = 277*3;
-            break;
-        case 0x0E: //12000
-            pre_scaler = 29;
-            period = 199*3;
-            break;
-        case 0x0D: //9600
-        case 0x0C:
-            pre_scaler = 23;
-            period = 416*3;
-            break;
-        case 0x0B: //7200
-            pre_scaler = 99;
-            period = 132*3;
-            break;
-        case 0x0A: //4800
-            pre_scaler = 39;
-            period = 499*3;
-            break;
-        case 0x09: //2400
-            pre_scaler = 39;
-            period = 999*3;
-            break;
-        default: //1200
-            pre_scaler = 39;
-            period = 1999*3;
-            break;
-    }
-
-    __HAL_TIM_SET_PRESCALER(&htim2, pre_scaler);
-    __HAL_TIM_SET_AUTORELOAD(&htim2, period);
-
-    //割込開始
-    HAL_TIM_Base_Start_IT(&htim2);
-}
-// ------------------------------------
-// キモの初期化
-// ------------------------------------
-/*
-// ハンドシェーク監視時間(500ms単位)
-#define HANDSHAKE_TIC 20
-// QAMステータスのModeがこの値以上なら接続済み(set_poll_countのtarget_modesと同じ範囲)
-#define QAM_MODE_CONNECTED 0x08
-*/
 void cmx869b_init() {
     GREType gre = {0};
     StatusRegType st = {0};
-    StatusQamRegType stqam = {0};
 
     static int is_loop_back = 0;
     static int is_Cal = 0;
@@ -394,10 +342,6 @@ void cmx869b_init() {
             cmx_delay_ms(500);
         }
     }
-    // ポーリングビットレート設定
-    st = cbus_read_status();
-    stqam = cbus_read_status_qam();
-    set_poll_count(stqam.Bits.Mode);
     // 合図
-    SEGGER_RTT_printf(0, "Initialized\r\n");
+    RTT_TermPrintf(0, "Initialized\r\n");
 }
