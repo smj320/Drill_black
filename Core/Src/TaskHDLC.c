@@ -10,6 +10,8 @@
 #include "TaskHDLC.h"
 
 #include <sys/types.h>
+
+#include "SEGGER_RTT.h"
 // ----------------------------------------------------------------------------
 // 各種宣言と確保
 // ----------------------------------------------------------------------------
@@ -37,15 +39,16 @@ void Wakeup_TaskHDLC_FromISR(void) {
 // -------------------------------------
 // HDLC service
 // -------------------------------------
-static void HDLC_service() {
+static void HDLC_driver() {
+    StatusQamRegType stq={0};
     StatusRegType st = {0};
     static uint8_t rxBuffer[Q_DATA_SIZE];
     static uint8_t txBuffer[Q_DATA_SIZE];
     static int rxPtr = 0;
     static int txPtr = Q_DATA_SIZE;
     //ステータス確認
+    HAL_GPIO_WritePin(CPU_MON_GPIO_Port, CPU_MON_Pin, GPIO_PIN_SET);
     st = cbus_read_status();
-    HdlcCnt.service++;
     // ------------------------
     // TXレジスタがReadyならデバイスに書く
     // ------------------------
@@ -53,7 +56,6 @@ static void HDLC_service() {
         //txPtrがxQTxの端まで言っていたらキューの有無をしらべて、txPtr=0にする
         if (txPtr == Q_DATA_SIZE) {
             if (xQueueReceive(hTxQ, txBuffer, 0) == pdPASS) {
-                HdlcCnt.txFrame++;
                 txPtr = 0;
             }
         }
@@ -67,32 +69,23 @@ static void HDLC_service() {
     // ------------------------
     if (st.Bits.RxDataReady == 1) {
         uint8_t rx_data = cbus_read_data();
-        HdlcCnt.rxReady++;
         //ポインタが端までいっていなければバッファに書く
         if (rxPtr < Q_DATA_SIZE) {
             rxBuffer[rxPtr++] = rx_data;
         }
+        if (st.Bits.FCS == 1 ) {
+            xQueueSend(hRxQ, rxBuffer, 0);
+            HdlcCnt.lastLen = rxPtr;
+            if (st.Bits.FrameError == 1) HdlcCnt.frameError++;
+            if (st.Bits.HDLCAbort == 1) HdlcCnt.HDLCAbort++;
+            memset(rxBuffer, 0, Q_DATA_SIZE);
+            stq = cbus_read_status_qam();
+            HdlcCnt.SNR = stq.Bits.SNR;
+            HdlcCnt.MODE = stq.Bits.Mode;
+            rxPtr = 0;
+        }
     }
-    if (st.Bits.RxDataOverflow == 1) HdlcCnt.rxOverflow++;
-    if (st.Bits.TxDataUnderflow == 1) HdlcCnt.txUnderflow++;
-    //フレームが壊れていればそこまでの受信データを捨てる
-    if (st.Bits.FrameError == 1) {
-        HdlcCnt.frameError++;
-        FrameError = 1;
-        rxPtr = 0;
-    }
-    //パケットが終了ならキューに書き込んでrxPtr=0に戻す
-    //終端フラグはRxDataReadyと別のタイミングで立つことがあるので独立して見る
-    //FCSビットは立ちっぱなしのことがあるので、受信データがあるときだけ送る
-    if (st.Bits.FCS == 1 && rxPtr > 0) {
-        HdlcCnt.fcs++;
-        HdlcCnt.lastLen = rxPtr;
-        //終端時の状態を記録(FrameErrorが同時に立っていればCRC異常の可能性)
-        if (st.Bits.FrameError == 1) HdlcCnt.fcsWithErr++;
-        if (rxPtr != Q_DATA_SIZE) HdlcCnt.shortFrame++;
-        if (xQueueSend(hRxQ, rxBuffer, 0) != pdPASS) HdlcCnt.rxQFull++;
-        rxPtr = 0;
-    }
+    HAL_GPIO_WritePin(CPU_MON_GPIO_Port, CPU_MON_Pin, GPIO_PIN_RESET);
 }
 
 // -------------------------------------
@@ -110,7 +103,7 @@ void StartTaskHDLC(void *argument) {
         // 計測開始
         HAL_GPIO_WritePin(CPU_MON_GPIO_Port, CPU_MON_Pin, GPIO_PIN_SET);
         //割込処理の実体
-        HDLC_service();
+        HDLC_driver();
         // 計測終了
         HAL_GPIO_WritePin(CPU_MON_GPIO_Port, CPU_MON_Pin, GPIO_PIN_RESET);
     }

@@ -170,13 +170,13 @@ StatusQamRegType cbus_read_status_qam(void) {
 
 static StatusQamRegType cbus_monitor_status_qam() {
     static int tic = 0;
-    StatusQamRegType qamSt= {0};
+    StatusQamRegType qamSt = {0};
     qamSt = cbus_read_status_qam();
     SEGGER_RTT_printf(0, "GSE:%d TI:%03d MSG:%02X SNR:%02X MODE:%02X\r\n",
-            Is_gse,
-            tic, qamSt.Bits.Messages,
-            qamSt.Bits.SNR,
-            qamSt.Bits.Mode);
+                      Is_gse,
+                      tic, qamSt.Bits.Messages,
+                      qamSt.Bits.SNR,
+                      qamSt.Bits.Mode);
     tic++;
     cmx_delay_ms(500);
     return qamSt;
@@ -190,7 +190,7 @@ static StatusQamRegType cbus_monitor_status_qam() {
 // 調整用
 // ------------------------------------
 static void set_bell() {
-    TxRegType txReg= {0};
+    TxRegType txReg = {0};
     RxRegType rxReg = {0};
     // TX
     txReg.Bits.TxMode = TxReg_Mode_BELL;
@@ -218,7 +218,7 @@ uint8_t MaxSpeed = QamMaxBR_14400;
 //uint8_t MaxSpeed = QamMaxBR_2400;
 //
 static void set_qam_answer() {
-    TxRegType txReg= {0};
+    TxRegType txReg = {0};
     RxRegType rxReg = {0};
     QamRegType qamReg = {0};
     // TX
@@ -248,7 +248,7 @@ static void set_qam_answer() {
 }
 
 static void set_qam_call() {
-    TxRegType txReg= {0};
+    TxRegType txReg = {0};
     RxRegType rxReg = {0};
     QamRegType qamReg = {0};
     // TX
@@ -281,25 +281,43 @@ static void set_qam_call() {
 // ****************************************************************************
 // モードから周期割込の頻度を決める
 static void set_poll_count(uint8_t mode) {
-    // TIM2のクロック。SYSCLKはMSI 4MHz x16 /2 = 32MHz。
-    // APB1が1分周なのでTIM2クロック = PCLK1(分周するとx2になるので注意)
-    const uint32_t TIM_CLK = HAL_RCC_GetPCLK1Freq()*2;
-    uint32_t target_modes[] = {0x0F, 0x0E, 0x0D, 0x0C, 0x0B, 0x0A, 0x09, 0x08};
-    uint32_t target_freqs[] = {14400, 12000, 9600, 9600, 7200, 4800, 2400, 1200};
-    uint32_t target_freq = 1200;
-
+    uint32_t pre_scaler = 39;
+    uint32_t period = 1999;
     //モード判定
-    for (uint8_t i = 0; i < 8; i++) {
-        if (target_modes[i] == mode) {
-            target_freq = target_freqs[i];
-        }
+    switch (mode) {
+        case 0x0F: //14400
+            pre_scaler = 23;
+            period = 277*3;
+            break;
+        case 0x0E: //12000
+            pre_scaler = 29;
+            period = 199*3;
+            break;
+        case 0x0D: //9600
+        case 0x0C:
+            pre_scaler = 23;
+            period = 416*3;
+            break;
+        case 0x0B: //7200
+            pre_scaler = 99;
+            period = 132*3;
+            break;
+        case 0x0A: //4800
+            pre_scaler = 39;
+            period = 499*3;
+            break;
+        case 0x09: //2400
+            pre_scaler = 39;
+            period = 999*3;
+            break;
+        default: //1200
+            pre_scaler = 39;
+            period = 1999*3;
+            break;
     }
 
-    // この tim2_clock を使って 14400Hz の計算をする
-    uint32_t booClk = (TIM_CLK / target_freq);
-    // booClkがbpsに相当するので、このルーチンをbClk回抜けると1秒になる
-    // 4bitの時間おきにポーリングにいく
-    __HAL_TIM_SET_AUTORELOAD(&htim2, booClk*2-1);
+    __HAL_TIM_SET_PRESCALER(&htim2, pre_scaler);
+    __HAL_TIM_SET_AUTORELOAD(&htim2, period);
 
     //割込開始
     HAL_TIM_Base_Start_IT(&htim2);
@@ -366,9 +384,9 @@ void cmx869b_init() {
         // Call側はHANDSHAKE_TIC(500ms単位)で接続できなければ発呼からやり直す。
         // これで立ち上げ順に依存せずにハンドシェークする
         //int connected = 0;
-        if (Is_gse==1) {
+        if (Is_gse == 1) {
             set_qam_call();
-        }else {
+        } else {
             set_qam_answer();
         }
         for (uint8_t tic = 0; tic < 60; tic++) {

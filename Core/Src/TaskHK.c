@@ -39,20 +39,11 @@ void StartTaskHK(void *argument) {
         xQueueSend(hTxQ, tx_data, 0);
         osDelay(200);
 
-        // 受信
+        // 受信状態
+        SEGGER_RTT_printf(0, "TI:%05d SNR:%02X MODE:%02X ERR:%03d LEN: %03d\r\n",
+            f_count, HdlcCnt.SNR, HdlcCnt.MODE, HdlcCnt.frameError, HdlcCnt.lastLen);
+        // フレーム終端時の内訳
         if (xQueueReceive(hRxQ, rx_data, 1500) == pdTRUE) {
-            // テストパターン(0,1,2,...)と照合して良否を数える
-            int ng = 0;
-            for (int i = 0; i < Q_DATA_SIZE; i++) {
-                if (rx_data[i] != i) ng++;
-            }
-            if (ng == 0) {
-                okFrame++;
-            } else {
-                ngFrame++;
-                ngByte += ng;
-            }
-            SEGGER_RTT_printf(0, "GSE %d : OK:%lu NG:%lu NGBYTE:%lu\r\n", Is_gse, okFrame, ngFrame, ngByte);
             for (int i = 0; i < Q_DATA_SIZE; i++) {
                 SEGGER_RTT_printf(0, "%04d ", rx_data[i]);
             }
@@ -60,18 +51,6 @@ void StartTaskHK(void *argument) {
         } else {
             SEGGER_RTT_printf(0, "Receive timeout\r\n");
         }
-        // 受信状態
-        SEGGER_RTT_printf(0, "RDY:%lu OVF:%lu UDF:%lu FER:%lu FCS:%lu LEN:%d\r\n",
-                HdlcCnt.rxReady, HdlcCnt.rxOverflow, HdlcCnt.txUnderflow,
-                HdlcCnt.frameError, HdlcCnt.fcs, HdlcCnt.lastLen);
-        // 送信状態とスタック残量(word単位。0に近いと溢れかけ)
-        SEGGER_RTT_printf(0, "SRV:%lu TXF:%lu STK HDLC:%lu HK:%lu\r\n",
-                HdlcCnt.service, HdlcCnt.txFrame,
-                (uint32_t) uxTaskGetStackHighWaterMark(TaskHDLCHandle),
-                (uint32_t) uxTaskGetStackHighWaterMark(NULL));
-        // フレーム終端時の内訳
-        SEGGER_RTT_printf(0, "FCSERR:%lu SHORT:%lu QFULL:%lu\r\n",
-                HdlcCnt.fcsWithErr, HdlcCnt.shortFrame, HdlcCnt.rxQFull);
         // 待機
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
         f_count++;

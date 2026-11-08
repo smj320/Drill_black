@@ -64,7 +64,11 @@ extern int Is_gse;   /* 1: GSE 側 (MODEM_MODE ピンが 0) */
 /* Private defines -----------------------------------------------------------*/
 #define LED_GREEN_Pin GPIO_PIN_13
 #define LED_GREEN_GPIO_Port GPIOC
-#define CPU_MON_Pin GPIO_PIN_15
+#define BUART1_TX_Pin GPIO_PIN_0
+#define BUART1_TX_GPIO_Port GPIOA
+#define BUART2_TX_Pin GPIO_PIN_1
+#define BUART2_TX_GPIO_Port GPIOA
+#define CPU_MON_Pin GPIO_PIN_10
 #define CPU_MON_GPIO_Port GPIOB
 #define MODEM_MODE_Pin GPIO_PIN_8
 #define MODEM_MODE_GPIO_Port GPIOA

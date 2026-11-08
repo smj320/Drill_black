@@ -19,16 +19,10 @@ extern QueueHandle_t hTxQ, hRxQ;
 
 // 診断用カウンタ
 typedef struct {
-    uint32_t rxReady;
-    uint32_t rxOverflow;
-    uint32_t txUnderflow;
     uint32_t frameError;
-    uint32_t fcs;
-    uint32_t txFrame;   // キューから取り出した送信フレーム数
-    uint32_t service;   // HDLC_serviceの実行回数
-    uint32_t fcsWithErr; // 終端時にFrameErrorも立っていた回数
-    uint32_t shortFrame; // 長さがQ_DATA_SIZEでなかったフレーム数
-    uint32_t rxQFull;    // 受信キュー満杯で捨てたフレーム数
+    uint32_t HDLCAbort;
+    uint8_t SNR;
+    uint8_t MODE;
     int lastLen;
 } HdlcCntType;
 extern HdlcCntType HdlcCnt;

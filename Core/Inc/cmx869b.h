@@ -18,7 +18,7 @@ typedef union {
     struct {
         uint16_t FSKDemodulatorOutput: 1; // b0
         uint16_t Char2Mode: 1; // b1
-        uint16_t Char2EvenHasParity: 1; // b2
+        uint16_t HDLCAbort: 1; // b2
         uint16_t FCS: 1; // b3
         uint16_t FrameError: 1; // b4
         uint16_t RxDataOverflow: 1; // b5　 MASK b00
